@@ -15,6 +15,7 @@ async function getAppInstance() {
 
 export async function getListPeople() {
   const app = await getAppInstance();
+  console.log("this is my test: ", "test");
   const getPeopleUseCase = app.get(GetPeopleUseCase);
 
   return await getPeopleUseCase.execute();

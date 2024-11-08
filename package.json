@@ -23,7 +23,7 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^22.8.4",
     "jest": "^29.7.0",
-    "serverless-webpack": "^5.15.0",
+    "serverless-step-functions": "^3.21.1",
     "ts-jest": "^29.2.5",
     "typescript": "^5.6.3",
     "webpack": "^5.95.0",

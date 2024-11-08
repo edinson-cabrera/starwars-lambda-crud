@@ -3,9 +3,14 @@ org: loomystudios
 app: starwars-server
 service: starwars-internal-crud
 
+plugins:
+  - serverless-step-functions
+
 provider:
   name: aws
   runtime: nodejs20.x
+  region: us-east-1
+  stage: dev
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -17,7 +22,18 @@ provider:
         - dynamodb:UpdateItem
         - dynamodb:DeleteItem
       Resource: "arn:aws:dynamodb:us-east-1:975050061581:table/people"
+    - Effect: Allow
+      Action:
+        - states:StartExecution
+        - sns:Publish
+      Resource:
+        - !Ref CharacterCreationTopic
+        - !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:character-creation-workflow-${self:provider.stage}
 
+  environment:
+    REGION: ${self:provider.region}
+    CHARACTER_CREATION_STATE_MACHINE_ARN: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:character-creation-workflow-${self:provider.stage}
+    STAGE: ${self:provider.stage}
 
 functions:
   hello:
@@ -27,8 +43,9 @@ functions:
           path: /list
           method: GET
   
-  create:
+  createPerson:
     handler: src/main.createPerson
+    name: CreateCharacterFunction
     events:
       - httpApi:
           path: /create
@@ -41,14 +58,87 @@ functions:
           path: /starwars/list
           method: GET
 
+  validateCharacter:
+    handler: src/infrastructure/functions/validate-character.validateCharacter
+    name: ValidateCharacterFunction
+    environment:
+      REGION: ${self:provider.region}
+  
+  sendNotification:
+    handler: src/infrastructure/functions/send-notification.sendNotification
+    name: SendNotificationFunction
+    environment:
+      REGION: ${self:provider.region}
+      CHARACTER_CREATION_TOPIC_ARN: !Ref CharacterCreationTopic
+
+stepFunctions:
+  stateMachines:
+    characterCreationWorkflow:
+      name: character-creation-workflow-${self:provider.stage}
+      definition:
+        StartAt: ValidateCharacter
+        States:
+          ValidateCharacter:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [ValidateCharacterLambdaFunction, Arn]
+            Next: ValidationChoice
+          
+          ValidationChoice:
+            Type: Choice
+            Choices:
+              - Variable: "$.isValid"
+                BooleanEquals: true
+                Next: CreateCharacter
+              - Variable: "$.isValid"
+                BooleanEquals: false
+                Next: ValidationFailed
+          
+          CreateCharacter:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [CreatePersonLambdaFunction, Arn]
+            Next: SendNotification
+            
+          SendNotification:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [SendNotificationLambdaFunction, Arn]
+            End: true
+            
+          ValidationFailed:
+            Type: Fail
+            Error: "ValidationError"
+            Cause: "Character validation failed"
+
+resources:
+  Resources:
+    CharacterCreationTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: character-creation-notifications-${self:provider.stage}
+        
+    CharacterCreationTopicPolicy:
+      Type: AWS::SNS::TopicPolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: states.amazonaws.com
+              Action: sns:Publish
+              Resource: !Ref CharacterCreationTopic
+        Topics:
+          - !Ref CharacterCreationTopic
 
 build:
   esbuild:
-    # Enable or Disable bundling the function code and dependencies. (Default: true)
     bundle: true
-    # Enable minifying function code. (Default: false)
     minify: false
-    # NPM packages to not be bundled. Glob patterns are supported here.
+    sourcemap: true
+    exclude:
+      - aws-sdk
     external:
       - 'class-transformer'
       - 'class-validator'
@@ -57,7 +147,5 @@ build:
       - '@nestjs/websockets/socket-module'
       - '@fastify/static'
       - '@fastify/view'
-    # NPM packages to not be bundled, as well as not included in node_modules
-    # in the zip file uploaded to Lambda. By default this will be set to aws-sdk
-    # if the runtime is set to nodejs16.x or lower or set to @aws-sdk/* if set to nodejs18.x or higher.
-    # Glob patterns are supported here.
+    platform: 'node'
+    target: 'node20'

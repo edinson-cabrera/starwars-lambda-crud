@@ -12,7 +12,7 @@ import { StarWarsApiClient } from "./infrastructure/clients/star-wars-api.client
     AppDynamoRepository,
     StarWarsApiClient,
     // UseCases
-    CreatePersonUseCase,
+    CreatePersonUseCase, 
     GetPeopleUseCase,
     GetStarWarsCharacterUseCase
   ],
