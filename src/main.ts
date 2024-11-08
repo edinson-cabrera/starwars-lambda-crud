@@ -1,35 +1,30 @@
-import { NestFactory } from "@nestjs/core";
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { AppModule } from "./app.module";
-import { INestApplicationContext } from "@nestjs/common";
-import { CreatePersonUseCase } from "./application/usecases/create-person.usecase";
-import { GetPeopleUseCase } from "./application/usecases/get-people.usecase";
-import { GetStarWarsCharacterUseCase } from "./application/usecases/get-star-wars-characters.usecase";
+import { NestFactory } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ValidationPipe } from '@nestjs/common';
+import { AppModule } from './app.module';
 
-let app: INestApplicationContext;
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
 
-async function getAppInstance() {
-  app = app ?? (await NestFactory.createApplicationContext(AppModule));
-  return app;
+  // Configuración de Swagger
+  const config = new DocumentBuilder()
+    .setTitle('Star Wars API')
+    .setDescription('API para gestionar personajes de Star Wars')
+    .setVersion('1.0')
+    .addTag('Personajes')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
+
+  // Configuración de validación global
+  app.useGlobalPipes(new ValidationPipe({
+    transform: true,
+    whitelist: true,
+    forbidNonWhitelisted: true,
+  }));
+
+  await app.listen(3000);
 }
 
-export async function getListPeople() {
-  const app = await getAppInstance();
-  console.log("this is my test: ", "test");
-  const getPeopleUseCase = app.get(GetPeopleUseCase);
-
-  return await getPeopleUseCase.execute();
-}
-
-export async function createPerson(event: APIGatewayProxyEvent) {
-  const app = await getAppInstance();
-  const createPersonUseCase = app.get(CreatePersonUseCase);
-  return await createPersonUseCase.execute(JSON.parse(event.body));
-}
-
-export async function getStarWarsCharacters() {
-  const app = await getAppInstance();
-  const getStarWarsCharacterUseCase = app.get(GetStarWarsCharacterUseCase);
-
-  return await getStarWarsCharacterUseCase.execute();
-}
+bootstrap();

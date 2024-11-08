@@ -1,21 +1,20 @@
-import { Module } from "@nestjs/common";
-import { AppDynamoRepository } from "./infrastructure/repositories/impl/app-dynamo-impl.repository";
-import { CreatePersonUseCase } from "./application/usecases/create-person.usecase";
-import { GetPeopleUseCase } from "./application/usecases/get-people.usecase";
-import { GetStarWarsCharacterUseCase } from "./application/usecases/get-star-wars-characters.usecase";
-import { StarWarsApiClient } from "./infrastructure/clients/star-wars-api.client";
+import { Module } from '@nestjs/common';
+import { CharacterController } from './infrastructure/controllers/character.controller';
+import { AppDynamoRepository } from './infrastructure/repositories/impl/app-dynamo-impl.repository';
+import { CreatePersonUseCase } from './application/usecases/create-person.usecase';
+import { GetPeopleUseCase } from './application/usecases/get-people.usecase';
+import { GetStarWarsCharacterUseCase } from './application/usecases/get-star-wars-characters.usecase';
+import { StarWarsApiClient } from './infrastructure/clients/star-wars-api.client';
 
 @Module({
   imports: [],
-  controllers: [],
+  controllers: [CharacterController],
   providers: [
     AppDynamoRepository,
     StarWarsApiClient,
-    // UseCases
-    CreatePersonUseCase, 
+    CreatePersonUseCase,
     GetPeopleUseCase,
     GetStarWarsCharacterUseCase
   ],
-  exports: [],
 })
 export class AppModule {}
